@@ -154,6 +154,15 @@ class Config(configparser.SafeConfigParser):
     def getEngineScriptKey(self):
         return self.get("shotgun", "key")
 
+    def getProjectID(self):
+        try:
+            project_id = self.get("shotgun", "project_id").strip()
+            if not project_id:
+                return None
+            return project_id.split(",")
+        except configparser.NoOptionError:
+            return None
+
     def getEngineProxyServer(self):
         try:
             proxy_server = self.get("shotgun", "proxy_server").strip()
@@ -273,6 +282,7 @@ class Engine(object):
             self.config.getEngineScriptKey(),
             http_proxy=self.config.getEngineProxyServer(),
         )
+        self._project_id = self.config.getProjectID()
         self._max_conn_retries = self.config.getint("daemon", "max_conn_retries")
         self._conn_retry_sleep = self.config.getint("daemon", "conn_retry_sleep")
         self._fetch_interval = self.config.getint("daemon", "fetch_interval")
@@ -544,7 +554,30 @@ class Engine(object):
                 nextEventId = newId
 
         if nextEventId is not None:
-            filters = [["id", "greater_than", nextEventId - 1]]
+            if self._project_id is not None:
+                """
+                        {
+                            "filter_operator": "any",
+                            "filters": [
+                                ["assets", "is", {"type": "Asset", "id": 9}],
+                                ["assets", "is", {"type": "Asset", "id": 23}]
+                            ]
+                        }
+                """
+                project_filters = []
+                for project_id in self._project_id:
+                    project_filters.append(["project", "is", {"type": "Project", "id": int(project_id)}])
+
+                filters = [
+                            ["id", "greater_than", nextEventId - 1],
+                            {    
+                                "filter_operator": "any",
+                                "filters": project_filters
+                            }
+                        ]
+            else: 
+                filters = [["id", "greater_than", nextEventId - 1]]
+
             fields = [
                 "id",
                 "event_type",

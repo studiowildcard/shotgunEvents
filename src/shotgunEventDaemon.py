@@ -555,15 +555,6 @@ class Engine(object):
 
         if nextEventId is not None:
             if self._project_id is not None:
-                """
-                        {
-                            "filter_operator": "any",
-                            "filters": [
-                                ["assets", "is", {"type": "Asset", "id": 9}],
-                                ["assets", "is", {"type": "Asset", "id": 23}]
-                            ]
-                        }
-                """
                 project_filters = []
                 for project_id in self._project_id:
                     project_filters.append(["project", "is", {"type": "Project", "id": int(project_id)}])

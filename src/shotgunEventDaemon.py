@@ -617,7 +617,7 @@ class Engine(object):
             for i in [
                 coll.getNextUnprocessedEventId() for coll in self._pluginCollections
             ]
-            if i != None
+            if i is not None
         ]
         if nextIds:
             nextEventId = min(nextIds)
@@ -746,7 +746,7 @@ class PluginCollection(object):
         ids = [
             i
             for i in [p.getNextUnprocessedEventId() for p in self if p.isActive()]
-            if i != None
+            if i is not None
         ]
         if ids:
             return min(ids)

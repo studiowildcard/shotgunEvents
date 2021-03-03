@@ -248,6 +248,10 @@ class Config(configparser.SafeConfigParser):
 
         return self.getLogFile() + ".timing"
 
+    def getBacklogTimeout(self):
+        # This is hardcoded to 5m for now but could become a config file variable
+        return 3000
+
 
 class Engine(object):
     """
@@ -542,12 +546,13 @@ class Engine(object):
                         nextEventId = plugin.getNextUnprocessedEventId()
 
                         if nextEventId is None:
-                            msg = (
-                                "Plugin %s has no last event marker. Sending event #%d."
-                            )
+                            msg = "Plugin %s has not yet processed any events. Sending event #%d."
                             self.log.debug(msg, pluginName, event["id"])
                             plugin.process(event)
                         elif event["id"] < nextEventId:
+                            # - Another plugin might have been deactivated by a bug and has now been reactivated so we're
+                            #   now looping through events that were already processed by this plugin but not by the
+                            #   reactivated one.
                             msg = "Last processed event for plugin %s is #%d, got #%d. Skipping."
                             self.log.debug(
                                 msg, pluginName, plugin.lastEvent["id"], event["id"]
@@ -571,13 +576,14 @@ class Engine(object):
                             )
 
                             delta = event["created_at"] - plugin.lastEvent["created_at"]
-                            if delta >= datetime.timedelta(seconds=5 * 60):
+                            backlogTimeout = self.config.getBacklogTimeout()
+                            if delta >= datetime.timedelta(seconds=backlogTimeout):
                                 msg = "Gap delta is %s. Assuming events in the gap won't show up, sending event to plugin %s."
-                                self.log.debug(msg, pluginName)
+                                self.log.debug(msg, delta, pluginName)
                                 plugin.process(event)
                             else:
-                                msg = "Gap delta is %s. Will wait until the gap fills up or the timeout is hit."
-                                self.log.debug(msg, delta)
+                                msg = "Gap delta is %s. Will wait until the gap fills up or the timeout (%d seconds) is hit."
+                                self.log.debug(msg, delta, backlogTimeout)
 
                                 # Skip this plugin for the rest of the event loop.
                                 # We do this to make sure no events in the same batch are processed leading
@@ -828,7 +834,7 @@ class Plugin(object):
         # self.logger.debug("Setting state with %s.", state)
 
         if isinstance(state, dict):
-            # The is an event log entry object
+            # The state is an event log entry object
             self.lastEvent = state
         elif isinstance(state, int):
             # The state is the id of an event log entry

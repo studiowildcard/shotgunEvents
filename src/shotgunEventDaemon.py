@@ -845,22 +845,24 @@ class Plugin(object):
             )
             return
 
-        regFunc = getattr(plugin, "registerCallbacks", None)
-        if callable(regFunc):
-            try:
-                regFunc(Registrar(self))
-            except:
+        validPlugin = plugin.__name__
+        if(validPlugin != "__init__"):
+            regFunc = getattr(plugin, "registerCallbacks", None)
+            if callable(regFunc):
+                try:
+                    regFunc(Registrar(self))
+                except:
+                    self._engine.log.critical(
+                        "Error running register callback function from plugin at %s.\n\n%s",
+                        self._path,
+                        traceback.format_exc(),
+                    )
+                    self._active = False
+            else:
                 self._engine.log.critical(
-                    "Error running register callback function from plugin at %s.\n\n%s",
-                    self._path,
-                    traceback.format_exc(),
+                    "Did not find a registerCallbacks function in plugin at %s.", self._path
                 )
                 self._active = False
-        else:
-            self._engine.log.critical(
-                "Did not find a registerCallbacks function in plugin at %s.", self._path
-            )
-            self._active = False
 
     def registerCallback(
         self,
